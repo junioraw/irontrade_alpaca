@@ -2,6 +2,11 @@
 name = "irontrade_alpaca"
 version = "0.1.0"
 edition = "2024"
+license = "GPL-3.0-or-later"
+description = """
+Rust alpaca trading client built on top of irontrade crate.
+"""
+repository = "https://github.com/junioraw/irontrade_alpaca"
 
 [dependencies]
 anyhow = "1.0.100"
