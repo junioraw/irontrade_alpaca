@@ -44,12 +44,21 @@ impl IronTradeClient for AlpacaClient {
         })
     }
 
-    async fn buy_limit(
-        &mut self,
-        req: OrderRequest,
-        limit_price: Num,
-    ) -> Result<OrderResponse> {
-        todo!()
+    async fn buy_limit(&mut self, req: OrderRequest, limit_price: Num) -> Result<OrderResponse> {
+        let amount = Amount(req.amount);
+        let request = order::CreateReqInit {
+            type_: Type::Limit,
+            time_in_force: TimeInForce::UntilCanceled,
+            limit_price: Some(limit_price),
+            ..Default::default()
+        }
+        .init(req.asset_pair.to_string(), Side::Buy, amount.into());
+
+        let order = self.apca_client.issue::<order::Create>(&request).await?;
+
+        Ok(OrderResponse {
+            order_id: order.id.to_string(),
+        })
     }
 
     async fn sell_market(&mut self, req: OrderRequest) -> Result<OrderResponse> {
@@ -68,12 +77,21 @@ impl IronTradeClient for AlpacaClient {
         })
     }
 
-    async fn sell_limit(
-        &mut self,
-        req: OrderRequest,
-        limit_price: Num,
-    ) -> Result<OrderResponse> {
-        todo!()
+    async fn sell_limit(&mut self, req: OrderRequest, limit_price: Num) -> Result<OrderResponse> {
+        let amount = Amount(req.amount);
+        let request = order::CreateReqInit {
+            type_: Type::Limit,
+            time_in_force: TimeInForce::UntilCanceled,
+            limit_price: Some(limit_price),
+            ..Default::default()
+        }
+        .init(req.asset_pair.to_string(), Side::Sell, amount.into());
+
+        let order = self.apca_client.issue::<order::Create>(&request).await?;
+
+        Ok(OrderResponse {
+            order_id: order.id.to_string(),
+        })
     }
 
     async fn get_orders(&self) -> Result<GetOrdersResponse> {
