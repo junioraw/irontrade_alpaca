@@ -8,11 +8,12 @@ use apca::api::v2::orders::{ListReq, Status};
 use apca::api::v2::{account, order, orders, position};
 use apca::{ApiInfo, Client};
 use irontrade::api::client::IronTradeClient;
-use irontrade::api::request::MarketOrderRequest;
+use irontrade::api::common::Order as IronTradeOrder;
+use irontrade::api::request::OrderRequest;
 use irontrade::api::response::{
-    GetCashResponse, GetOpenPositionResponse, GetOrdersResponse, MarketOrderResponse,
-    Order as IronTradeOrder,
+    GetCashResponse, GetOpenPositionResponse, GetOrdersResponse, OrderResponse,
 };
+use num_decimal::Num;
 
 pub struct AlpacaClient {
     apca_client: Client,
@@ -27,7 +28,7 @@ impl AlpacaClient {
 }
 
 impl IronTradeClient for AlpacaClient {
-    async fn buy_market(&mut self, req: MarketOrderRequest) -> Result<MarketOrderResponse> {
+    async fn buy_market(&mut self, req: OrderRequest) -> Result<OrderResponse> {
         let amount = Amount(req.amount);
         let request = order::CreateReqInit {
             type_: Type::Market,
@@ -38,12 +39,20 @@ impl IronTradeClient for AlpacaClient {
 
         let order = self.apca_client.issue::<order::Create>(&request).await?;
 
-        Ok(MarketOrderResponse {
+        Ok(OrderResponse {
             order_id: order.id.to_string(),
         })
     }
 
-    async fn sell_market(&mut self, req: MarketOrderRequest) -> Result<MarketOrderResponse> {
+    async fn buy_limit(
+        &mut self,
+        req: OrderRequest,
+        limit_price: Num,
+    ) -> Result<OrderResponse> {
+        todo!()
+    }
+
+    async fn sell_market(&mut self, req: OrderRequest) -> Result<OrderResponse> {
         let amount = Amount(req.amount);
         let request = order::CreateReqInit {
             type_: Type::Market,
@@ -54,9 +63,17 @@ impl IronTradeClient for AlpacaClient {
 
         let order = self.apca_client.issue::<order::Create>(&request).await?;
 
-        Ok(MarketOrderResponse {
+        Ok(OrderResponse {
             order_id: order.id.to_string(),
         })
+    }
+
+    async fn sell_limit(
+        &mut self,
+        req: OrderRequest,
+        limit_price: Num,
+    ) -> Result<OrderResponse> {
+        todo!()
     }
 
     async fn get_orders(&self) -> Result<GetOrdersResponse> {
@@ -100,8 +117,7 @@ impl IronTradeClient for AlpacaClient {
 mod tests {
     use super::*;
     use apca::ApiInfo;
-    use irontrade::api::common::{Amount, AssetPair};
-    use irontrade::api::response::OrderStatus;
+    use irontrade::api::common::{Amount, AssetPair, OrderStatus};
     use num_decimal::Num;
     use std::str::FromStr;
     use std::time::Duration;
@@ -111,7 +127,7 @@ mod tests {
     async fn buy_market_returns_order_id() {
         let mut client = create_client();
         let order_id = client
-            .buy_market(MarketOrderRequest {
+            .buy_market(OrderRequest {
                 asset_pair: AssetPair::from_str("BTC/USD").unwrap(),
                 amount: Amount::Notional {
                     notional: Num::from(20),
@@ -129,7 +145,7 @@ mod tests {
         let mut client = create_client();
 
         let buy_order_id = client
-            .buy_market(MarketOrderRequest {
+            .buy_market(OrderRequest {
                 asset_pair: AssetPair::from_str("AAVE/USD").unwrap(),
                 amount: Amount::Notional {
                     notional: Num::from(20),
@@ -156,7 +172,7 @@ mod tests {
         }
 
         let order_id = client
-            .sell_market(MarketOrderRequest {
+            .sell_market(OrderRequest {
                 asset_pair: AssetPair::from_str("AAVE/USD").unwrap(),
                 amount: Amount::Notional {
                     notional: Num::from(10),
@@ -177,7 +193,7 @@ mod tests {
 
         if pre_existing_orders.is_empty() {
             client
-                .buy_market(MarketOrderRequest {
+                .buy_market(OrderRequest {
                     asset_pair: AssetPair::from_str("BTC/USD").unwrap(),
                     amount: Amount::Notional {
                         notional: Num::from(20),
@@ -204,7 +220,7 @@ mod tests {
         let mut client = create_client();
 
         let buy_order_id = client
-            .buy_market(MarketOrderRequest {
+            .buy_market(OrderRequest {
                 asset_pair: AssetPair::from_str("BTC/USD").unwrap(),
                 amount: Amount::Notional {
                     notional: Num::from(20),

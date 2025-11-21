@@ -6,7 +6,7 @@ use apca::api::v2::order::Status as ApcaOrderStatus;
 use apca::api::v2::order::Type;
 use apca::api::v2::position::Position;
 use irontrade::api::common::Amount as IronTradeAmount;
-use irontrade::api::response::{
+use irontrade::api::common::{
     OpenPosition as IronTradeOpenPosition, Order as IronTradeOrder,
     OrderStatus as IronTradeOrderStatus, OrderType as IronTradeOrderType,
 };
