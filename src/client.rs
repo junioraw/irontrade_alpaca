@@ -159,6 +159,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn buy_limit_returns_order_id() {
+        let mut client = create_client();
+        let order_id = client
+            .buy_limit(
+                OrderRequest {
+                    asset_pair: AssetPair::from_str("USDT/USD").unwrap(),
+                    amount: Amount::Notional {
+                        notional: Num::from(20),
+                    },
+                },
+                Num::from_str("1.1").unwrap(),
+            )
+            .await
+            .unwrap()
+            .order_id;
+
+        assert_ne!(order_id, "")
+    }
+
+    #[tokio::test]
     async fn sell_market_returns_order_id() {
         let mut client = create_client();
 
@@ -173,7 +193,6 @@ mod tests {
             .unwrap()
             .order_id;
 
-        dbg!(&buy_order_id);
         loop {
             let orders = client.get_orders().await.unwrap().orders;
             let order_ids: Vec<String> =
@@ -196,6 +215,56 @@ mod tests {
                     notional: Num::from(10),
                 },
             })
+            .await
+            .unwrap()
+            .order_id;
+
+        assert_ne!(order_id, "")
+    }
+
+    #[tokio::test]
+    async fn sell_limit_returns_order_id() {
+        let mut client = create_client();
+
+        let buy_order_id = client
+            .buy_limit(
+                OrderRequest {
+                    asset_pair: AssetPair::from_str("USDT/USD").unwrap(),
+                    amount: Amount::Notional {
+                        notional: Num::from(20),
+                    },
+                },
+                Num::from_str("1.1").unwrap(),
+            )
+            .await
+            .unwrap()
+            .order_id;
+
+        loop {
+            let orders = client.get_orders().await.unwrap().orders;
+            let order_ids: Vec<String> =
+                orders.iter().map(|order| order.order_id.clone()).collect();
+            dbg!(&order_ids);
+            let buy_order = orders
+                .iter()
+                .find(|order| order.order_id == buy_order_id)
+                .unwrap();
+            if matches!(buy_order.status, OrderStatus::Filled) {
+                break;
+            }
+            sleep(Duration::from_secs(1)).await;
+        }
+
+        let order_id = client
+            .sell_limit(
+                OrderRequest {
+                    asset_pair: AssetPair::from_str("USDT/USD").unwrap(),
+                    amount: Amount::Notional {
+                        notional: Num::from(10),
+                    },
+                },
+                Num::from_str("0.99").unwrap(),
+            )
             .await
             .unwrap()
             .order_id;
