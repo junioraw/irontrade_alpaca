@@ -11,6 +11,6 @@ repository = "https://github.com/junioraw/irontrade_alpaca"
 [dependencies]
 anyhow = "1.0.100"
 tokio = { version = "1.48.0", features = ["macros", "rt"] }
-irontrade = "0.1.9"
+irontrade = "=0.1.9"
 num-decimal = { version = "0.2.5", default-features = false, features = ["num-v04", "serde"] }
 apca = { git = "https://github.com/junioraw/apca.git", branch = "patch-get_position", version = "0.30.0" }
