@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use apca::api::v2::order::Amount as ApcaAmount;
+use apca::api::v2::order::{Amount as ApcaAmount, Side};
 use apca::api::v2::order::Order as ApcaOrder;
 use apca::api::v2::order::Status as ApcaOrderStatus;
+use apca::api::v2::order::Side as ApcaOrderSide;
 use apca::api::v2::order::Type;
 use apca::api::v2::position::Position;
-use irontrade::api::common::Amount as IronTradeAmount;
-use irontrade::api::response::{
-    OpenPosition as IronTradeOpenPosition, Order as IronTradeOrder,
-    OrderStatus as IronTradeOrderStatus, OrderType as IronTradeOrderType,
+use irontrade::api::common::{Amount as IronTradeAmount, OpenPosition as IronTradeOpenPosition, Order as IronTradeOrder,
+    OrderStatus as IronTradeOrderStatus, OrderType as IronTradeOrderType, OrderSide as IronTradeOrderSide
 };
 
 pub struct Amount(pub IronTradeAmount);
@@ -58,6 +57,17 @@ impl From<ApcaOrderStatus> for OrderStatus {
     }
 }
 
+pub struct OrderSide(pub IronTradeOrderSide);
+
+impl From<ApcaOrderSide> for OrderSide {
+    fn from(side: ApcaOrderSide) -> Self {
+        match side {
+            Side::Buy => OrderSide(IronTradeOrderSide::Buy),
+            Side::Sell => OrderSide(IronTradeOrderSide::Sell),
+        }
+    }
+}
+
 pub struct OrderType(pub IronTradeOrderType);
 
 impl From<Type> for OrderType {
@@ -83,6 +93,9 @@ impl From<ApcaOrder> for Order {
         let type_: OrderType = order.type_.into();
         let type_ = type_.0;
 
+        let side: OrderSide = order.side.into();
+        let side = side.0;
+
         Self(IronTradeOrder {
             order_id: order.id.to_string(),
             asset_symbol: order.symbol,
@@ -91,6 +104,8 @@ impl From<ApcaOrder> for Order {
             average_fill_price: order.average_fill_price,
             status,
             type_,
+            limit_price: order.limit_price,
+            side
         })
     }
 }
