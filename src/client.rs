@@ -77,7 +77,8 @@ impl IronTradeClient for AlpacaClient {
     }
 
     async fn get_buying_power(&self) -> Result<Num> {
-        todo!()
+        let buying_power = self.apca_client.issue::<account::Get>(&()).await?.buying_power;
+        Ok(buying_power)
     }
 
     async fn get_cash(&self) -> Result<Num> {
@@ -201,7 +202,14 @@ mod tests {
         let client = create_client();
         let cash = client.get_cash().await?;
         assert!(cash > Num::from(0));
+        Ok(())
+    }
 
+    #[tokio::test]
+    async fn get_buying_power() -> Result<()> {
+        let client = create_client();
+        let buying_power = client.get_buying_power().await?;
+        assert!(buying_power > Num::from(0));
         Ok(())
     }
 
