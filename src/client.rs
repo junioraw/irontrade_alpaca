@@ -8,11 +8,9 @@ use apca::api::v2::orders::{ListReq, Status};
 use apca::api::v2::{account, order, orders, position};
 use apca::{ApiInfo, Client};
 use irontrade::api::client::IronTradeClient;
-use irontrade::api::common::{Order as IronTradeOrder, OrderSide};
+use irontrade::api::common::{OpenPosition as IronTradeOpenPosition, Order as IronTradeOrder, OrderSide};
 use irontrade::api::request::OrderRequest;
-use irontrade::api::response::{
-    GetCashResponse, GetOpenPositionResponse, GetOrdersResponse, OrderResponse,
-};
+use num_decimal::Num;
 
 pub struct AlpacaClient {
     apca_client: Client,
@@ -27,7 +25,7 @@ impl AlpacaClient {
 }
 
 impl IronTradeClient for AlpacaClient {
-    async fn place_order(&mut self, req: OrderRequest) -> Result<OrderResponse> {
+    async fn place_order(&mut self, req: OrderRequest) -> Result<String> {
         let side: Side = match req.side {
             OrderSide::Buy => Side::Buy,
             OrderSide::Sell => Side::Sell,
@@ -57,10 +55,10 @@ impl IronTradeClient for AlpacaClient {
             .id
             .to_string();
 
-        Ok(OrderResponse { order_id })
+        Ok(order_id)
     }
 
-    async fn get_orders(&self) -> Result<GetOrdersResponse> {
+    async fn get_orders(&self) -> Result<Vec<IronTradeOrder>> {
         let orders: Vec<IronTradeOrder> = self
             .apca_client
             .issue::<orders::List>(&ListReq {
@@ -75,15 +73,19 @@ impl IronTradeClient for AlpacaClient {
             })
             .collect();
 
-        Ok(GetOrdersResponse { orders })
+        Ok(orders)
     }
 
-    async fn get_cash(&self) -> Result<GetCashResponse> {
-        let account = self.apca_client.issue::<account::Get>(&()).await?;
-        Ok(GetCashResponse { cash: account.cash })
+    async fn get_buying_power(&self) -> Result<Num> {
+        todo!()
     }
 
-    async fn get_open_position(&self, asset_symbol: &str) -> Result<GetOpenPositionResponse> {
+    async fn get_cash(&self) -> Result<Num> {
+        let cash = self.apca_client.issue::<account::Get>(&()).await?.cash;
+        Ok(cash)
+    }
+
+    async fn get_open_position(&self, asset_symbol: &str) -> Result<IronTradeOpenPosition> {
         let position = self
             .apca_client
             .issue::<position::Get>(&Symbol::Sym(asset_symbol.into()))
@@ -92,7 +94,7 @@ impl IronTradeClient for AlpacaClient {
         let open_position: OpenPosition = position.into();
         let open_position = open_position.0;
 
-        Ok(GetOpenPositionResponse { open_position })
+        Ok(open_position)
     }
 }
 
@@ -108,45 +110,41 @@ mod tests {
     use tokio::time::sleep;
 
     #[tokio::test]
-    async fn buy_market_returns_order_id() {
+    async fn buy_market_returns_order_id() -> Result<()> {
         let mut client = create_client();
         let order_id = client
             .place_order(OrderRequest {
-                asset_pair: AssetPair::from_str("BTC/USD").unwrap(),
+                asset_pair: AssetPair::from_str("BTC/USD")?,
                 amount: Amount::Notional {
                     notional: Num::from(20),
                 },
                 side: OrderSide::Buy,
                 limit_price: None,
             })
-            .await
-            .unwrap()
-            .order_id;
+            .await?;
 
-        assert_ne!(order_id, "")
+        assert_ne!(order_id, "");
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn sell_market_returns_order_id() {
+    async fn sell_market_returns_order_id() -> Result<()> {
         let mut client = create_client();
 
         let buy_order_id = client
             .place_order(OrderRequest {
-                asset_pair: AssetPair::from_str("AAVE/USD").unwrap(),
+                asset_pair: AssetPair::from_str("AAVE/USD")?,
                 amount: Amount::Notional {
                     notional: Num::from(20),
                 },
                 side: OrderSide::Buy,
                 limit_price: None,
             })
-            .await
-            .unwrap()
-            .order_id;
+            .await?;
 
         loop {
-            let orders = client.get_orders().await.unwrap().orders;
-            let order_ids: Vec<String> =
-                orders.iter().map(|order| order.order_id.clone()).collect();
+            let orders = client.get_orders().await?;
             let buy_order = orders
                 .iter()
                 .find(|order| order.order_id == buy_order_id)
@@ -159,71 +157,71 @@ mod tests {
 
         let order_id = client
             .place_order(OrderRequest {
-                asset_pair: AssetPair::from_str("AAVE/USD").unwrap(),
+                asset_pair: AssetPair::from_str("AAVE/USD")?,
                 amount: Amount::Notional {
                     notional: Num::from(10),
                 },
                 side: OrderSide::Sell,
                 limit_price: None,
             })
-            .await
-            .unwrap()
-            .order_id;
+            .await?;
 
-        assert_ne!(order_id, "")
+        assert_ne!(order_id, "");
+
+        Ok(())
     }
 
     // TODO: Run this test atomically
     #[tokio::test]
-    async fn get_orders() {
+    async fn get_orders() -> Result<()> {
         let mut client = create_client();
-        let pre_existing_orders = client.get_orders().await.unwrap().orders;
+        let pre_existing_orders = client.get_orders().await?;
 
         if pre_existing_orders.is_empty() {
             client
                 .place_order(OrderRequest {
-                    asset_pair: AssetPair::from_str("BTC/USD").unwrap(),
+                    asset_pair: AssetPair::from_str("BTC/USD")?,
                     amount: Amount::Notional {
                         notional: Num::from(20),
                     },
                     side: OrderSide::Buy,
                     limit_price: None,
-                })
-                .await
-                .unwrap();
+                }).await?;
 
-            let orders = client.get_orders().await.unwrap().orders;
+            let orders = client.get_orders().await?;
 
-            assert!(orders.len() > 0)
+            assert!(orders.len() > 0);
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn get_cash() {
+    async fn get_cash() -> Result<()> {
         let client = create_client();
-        let cash = client.get_cash().await.unwrap().cash;
-        assert!(cash > Num::from(0))
+        let cash = client.get_cash().await?;
+        assert!(cash > Num::from(0));
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn get_open_position() {
+    async fn get_open_position() -> Result<()> {
         let mut client = create_client();
 
         let buy_order_id = client
             .place_order(OrderRequest {
-                asset_pair: AssetPair::from_str("BTC/USD").unwrap(),
+                asset_pair: AssetPair::from_str("BTC/USD")?,
                 amount: Amount::Notional {
                     notional: Num::from(20),
                 },
                 side: OrderSide::Buy,
                 limit_price: None,
             })
-            .await
-            .unwrap()
-            .order_id;
+            .await?;
 
         loop {
-            let orders = client.get_orders().await.unwrap().orders;
+            let orders = client.get_orders().await?;
             let buy_order = orders
                 .iter()
                 .find(|order| order.order_id == buy_order_id)
@@ -236,11 +234,11 @@ mod tests {
 
         let position = client
             .get_open_position("BTC/USD".into())
-            .await
-            .unwrap()
-            .open_position;
+            .await?;
 
-        assert_eq!(position.asset_symbol, "BTCUSD")
+        assert_eq!(position.asset_symbol, "BTCUSD");
+
+        Ok(())
     }
 
     fn create_client() -> AlpacaClient {
